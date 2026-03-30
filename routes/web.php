@@ -9,6 +9,9 @@ Route::inertia('/', 'welcome', [
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
+
+    // Admin panel entry — redirect /admin to users list until a dashboard page is built
+    Route::redirect('admin', '/admin/users')->name('admin.home');
 });
 
 require __DIR__.'/settings.php';
