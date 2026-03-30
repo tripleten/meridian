@@ -41,6 +41,7 @@ final class ProductData extends Data
         public readonly bool    $is_purchasable,
         public readonly ?string $meta_title,
         public readonly ?string $meta_description,
+        public readonly ?string $main_image,
         public readonly string  $created_at,
     ) {}
 
@@ -70,6 +71,7 @@ final class ProductData extends Data
             is_purchasable:    (bool) $product->is_purchasable,
             meta_title:        $product->seo_title,
             meta_description:  $product->seo_description,
+            main_image:        $product->main_image,
             created_at:        $product->created_at->toDateTimeString(),
         );
     }

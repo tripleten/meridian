@@ -32,5 +32,7 @@ final readonly class UpdateProductCommand
         public ?float  $weight        = null,
         public string  $weight_unit   = 'kg',
         public bool    $is_featured   = false,
+        public ?string $main_image    = null,
+        public array   $category_ids  = [],
     ) {}
 }

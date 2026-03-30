@@ -45,6 +45,7 @@ class EloquentProduct extends Model
         'slug',
         'url_key',
         'sku',
+        'main_image',
         'short_description',
         'description',
         'base_price',
@@ -112,7 +113,7 @@ class EloquentProduct extends Model
     {
         return $this->belongsToMany(
             EloquentCategory::class,
-            'product_categories',
+            'category_product',
             'product_id',
             'category_id'
         )->withPivot('position', 'is_anchor');

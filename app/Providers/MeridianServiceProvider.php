@@ -42,6 +42,11 @@ final class MeridianServiceProvider extends ServiceProvider
         \Meridian\Orders\OrdersServiceProvider::class,
         \Meridian\Payments\PaymentsServiceProvider::class,
         \Meridian\Fulfillment\FulfillmentServiceProvider::class,
+        \Meridian\Tax\TaxServiceProvider::class,
+        \Meridian\Promotions\PromotionsServiceProvider::class,
+        \Meridian\Settings\SettingsServiceProvider::class,
+        \Meridian\Webhooks\WebhooksServiceProvider::class,
+        \Meridian\Reporting\ReportingServiceProvider::class,
     ];
 
     public function register(): void

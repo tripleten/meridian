@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 use Meridian\Catalog\Presentation\Admin\Brands\BrandController;
 use Meridian\Catalog\Presentation\Admin\Categories\CategoryController;
 use Meridian\Catalog\Presentation\Admin\Products\ProductController;
+use Meridian\Catalog\Presentation\Admin\Products\ProductVariantController;
 use Meridian\IdentityAccess\Presentation\Middleware\EnsureUserIsAdmin;
 
 Route::middleware(['web', 'auth', 'verified', EnsureUserIsAdmin::class])
@@ -24,6 +25,13 @@ Route::middleware(['web', 'auth', 'verified', EnsureUserIsAdmin::class])
 
         Route::resource('products', ProductController::class)
             ->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+
+        Route::prefix('products/{product}/variants')->name('products.variants.')
+            ->group(function (): void {
+                Route::post('/', [ProductVariantController::class, 'store'])->name('store');
+                Route::put('/{variant}', [ProductVariantController::class, 'update'])->name('update');
+                Route::delete('/{variant}', [ProductVariantController::class, 'destroy'])->name('destroy');
+            });
 
         Route::resource('categories', CategoryController::class)
             ->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);

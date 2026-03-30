@@ -15,13 +15,10 @@ namespace Meridian\Catalog\Infrastructure\Persistence;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class EloquentProductVariant extends Model
 {
-    use SoftDeletes;
-
     protected $table = 'product_variants';
 
     protected $keyType = 'string';
@@ -33,21 +30,21 @@ class EloquentProductVariant extends Model
         'product_id',
         'sku',
         'name',
-        'price_override',
-        'cost_override',
-        'weight_override',
+        'price',
+        'compare_price',
+        'cost_price',
+        'weight',
         'is_active',
-        'is_default',
         'sort_order',
         'extra_attributes',
     ];
 
     protected $casts = [
-        'price_override'  => 'integer',
-        'cost_override'   => 'integer',
-        'weight_override' => 'float',
-        'is_active'       => 'boolean',
-        'is_default'      => 'boolean',
+        'price'            => 'integer',
+        'compare_price'    => 'integer',
+        'cost_price'       => 'integer',
+        'weight'           => 'float',
+        'is_active'        => 'boolean',
         'extra_attributes' => 'array',
     ];
 

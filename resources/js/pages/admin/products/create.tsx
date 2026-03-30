@@ -8,29 +8,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { PageProps } from '@inertiajs/core';
+import { useRef, useState } from 'react';
+import { ImagePlus, X } from 'lucide-react';
 
 interface Option { value: string; label: string; }
 interface IdName { id: string; name: string; }
+interface CategoryOption { id: string; label: string; depth: number; }
 
 interface Props extends PageProps {
     brands: IdName[];
     attributeSets: IdName[];
+    categories: CategoryOption[];
     typeOptions: Option[];
     statusOptions: Option[];
+    visibilityOptions: Option[];
 }
 
 function slugify(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/[\s]+/g, '-');
 }
 
+const NO_WEIGHT_TYPES = ['virtual', 'downloadable'];
+
 export default function ProductsCreate() {
-    const { brands, attributeSets, typeOptions, statusOptions } = usePage<Props>().props;
+    const { brands, attributeSets, categories, typeOptions, statusOptions, visibilityOptions } = usePage<Props>().props;
 
     const { data, setData, post, processing, errors } = useForm({
         name:              '',
         sku:               '',
         type:              'simple',
         status:            'draft',
+        visibility:        'catalog_search',
+        category_ids:      [] as string[],
         base_price:        '',
         compare_price:     '',
         cost_price:        '',
@@ -43,15 +52,45 @@ export default function ProductsCreate() {
         weight:            '',
         weight_unit:       'kg',
         is_featured:       false as boolean,
+        main_image:        null as File | null,
     });
+
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     function handleName(value: string) {
         setData((prev) => ({ ...prev, name: value, url_key: slugify(value) }));
     }
 
+    function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0] ?? null;
+        setData('main_image', file);
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+            reader.readAsDataURL(file);
+        } else {
+            setImagePreview(null);
+        }
+    }
+
+    function removeImage() {
+        setData('main_image', null);
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        post('/admin/products');
+        post('/admin/products', { forceFormData: true });
+    }
+
+    const showWeight = !NO_WEIGHT_TYPES.includes(data.type);
+
+    function toggleCategory(id: string) {
+        setData('category_ids', data.category_ids.includes(id)
+            ? data.category_ids.filter(c => c !== id)
+            : [...data.category_ids, id]);
     }
 
     return (
@@ -92,6 +131,12 @@ export default function ProductsCreate() {
                                     <InputError message={errors.status} />
                                 </div>
                             </div>
+
+                            {data.type === 'configurable' && (
+                                <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                                    Configurable product — after saving, add variants from the product detail page.
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-1.5">
                                 <Label htmlFor="name">Name</Label>
@@ -152,6 +197,43 @@ export default function ProductsCreate() {
                                 />
                                 <InputError message={errors.description} />
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Image */}
+                    <Card>
+                        <CardHeader><CardTitle>Product image</CardTitle></CardHeader>
+                        <CardContent>
+                            {imagePreview ? (
+                                <div className="relative w-40 h-40">
+                                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-md border" />
+                                    <button
+                                        type="button"
+                                        onClick={removeImage}
+                                        className="absolute -top-2 -right-2 rounded-full bg-destructive text-destructive-foreground p-0.5 shadow"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <label
+                                    htmlFor="main_image"
+                                    className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                                >
+                                    <ImagePlus className="h-8 w-8 text-muted-foreground mb-2" />
+                                    <span className="text-xs text-muted-foreground">Upload image</span>
+                                </label>
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                id="main_image"
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={handleImage}
+                            />
+                            <InputError message={errors.main_image} />
+                            <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, WebP — max 5 MB</p>
                         </CardContent>
                     </Card>
 
@@ -232,30 +314,43 @@ export default function ProductsCreate() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="col-span-2 flex flex-col gap-1.5">
-                                    <Label htmlFor="weight">Weight</Label>
-                                    <Input
-                                        id="weight"
-                                        type="number"
-                                        step="0.001"
-                                        min="0"
-                                        value={data.weight}
-                                        onChange={(e) => setData('weight', e.target.value)}
-                                        placeholder="0.000"
-                                    />
-                                    <InputError message={errors.weight} />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="weight_unit">Unit</Label>
-                                    <Select value={data.weight_unit} onValueChange={(v) => setData('weight_unit', v)}>
-                                        <SelectTrigger id="weight_unit"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {['kg', 'g', 'lb', 'oz'].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="visibility">Visibility</Label>
+                                <Select value={data.visibility} onValueChange={(v) => setData('visibility', v)}>
+                                    <SelectTrigger id="visibility"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {visibilityOptions.map((v) => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.visibility} />
                             </div>
+
+                            {showWeight && (
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="col-span-2 flex flex-col gap-1.5">
+                                        <Label htmlFor="weight">Weight</Label>
+                                        <Input
+                                            id="weight"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            value={data.weight}
+                                            onChange={(e) => setData('weight', e.target.value)}
+                                            placeholder="0.000"
+                                        />
+                                        <InputError message={errors.weight} />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label htmlFor="weight_unit">Unit</Label>
+                                        <Select value={data.weight_unit} onValueChange={(v) => setData('weight_unit', v)}>
+                                            <SelectTrigger id="weight_unit"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {['kg', 'g', 'lb', 'oz'].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex items-center gap-3">
                                 <Switch
@@ -267,6 +362,28 @@ export default function ProductsCreate() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Categories */}
+                    {categories.length > 0 && (
+                        <Card>
+                            <CardHeader><CardTitle>Categories</CardTitle></CardHeader>
+                            <CardContent>
+                                <div className="border rounded-md divide-y max-h-56 overflow-y-auto">
+                                    {categories.map(cat => (
+                                        <label key={cat.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.category_ids.includes(cat.id)}
+                                                onChange={() => toggleCategory(cat.id)}
+                                                className="h-4 w-4"
+                                            />
+                                            <span className="text-sm">{cat.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <div className="flex gap-3">
                         <Button type="submit" disabled={processing}>

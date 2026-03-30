@@ -5,17 +5,22 @@ import {
     CreditCard,
     FileText,
     FolderTree,
+    Gift,
+    Globe,
     LayoutDashboard,
     List,
     Megaphone,
     Package,
+    Percent,
     Settings,
     ShoppingCart,
     Tag,
+    Ticket,
     Truck,
     UserSquare,
     Users,
     Warehouse,
+    Webhook,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavUser } from '@/components/nav-user';
@@ -76,9 +81,21 @@ const adminNav: NavSection[] = [
         ],
     },
     {
-        label: 'Marketing',
+        label: 'Promotions',
         items: [
-            { title: 'Promotions', href: '/admin/promotions', icon: Megaphone },
+            { title: 'Coupons',        href: '/admin/promotions/coupons',       icon: Ticket },
+            { title: 'Cart Rules',     href: '/admin/promotions/cart-rules',    icon: Megaphone },
+            { title: 'Catalog Rules',  href: '/admin/promotions/catalog-rules', icon: Percent },
+            { title: 'Gift Cards',     href: '/admin/promotions/gift-cards',    icon: Gift },
+        ],
+    },
+    {
+        label: 'Tax',
+        items: [
+            { title: 'Tax Classes', href: '/admin/tax/classes', icon: List },
+            { title: 'Tax Zones',   href: '/admin/tax/zones',   icon: Globe },
+            { title: 'Tax Rates',   href: '/admin/tax/rates',   icon: Percent },
+            { title: 'Tax Rules',   href: '/admin/tax/rules',   icon: List },
         ],
     },
     {
@@ -90,8 +107,9 @@ const adminNav: NavSection[] = [
     {
         label: 'System',
         items: [
-            { title: 'Admin Users', href: '/admin/users',    icon: Users },
-            { title: 'Settings',    href: '/admin/settings', icon: Settings },
+            { title: 'Admin Users', href: '/admin/users',     icon: Users },
+            { title: 'Settings',    href: '/admin/settings',  icon: Settings },
+            { title: 'Webhooks',    href: '/admin/webhooks',  icon: Webhook },
         ],
     },
 ];

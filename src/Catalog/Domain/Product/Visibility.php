@@ -15,14 +15,18 @@ namespace Meridian\Catalog\Domain\Product;
 
 enum Visibility: string
 {
-    case Visible = 'visible'; // shows in catalog + search
-    case Hidden  = 'hidden';  // variants — never get their own URL
+    case CatalogSearch = 'catalog_search'; // shows in catalog + search (default)
+    case Catalog       = 'catalog';        // catalog only
+    case Search        = 'search';         // search only
+    case Hidden        = 'hidden';         // not visible (variants, etc.)
 
     public function label(): string
     {
         return match ($this) {
-            self::Visible => 'Visible',
-            self::Hidden  => 'Hidden',
+            self::CatalogSearch => 'Catalog & Search',
+            self::Catalog       => 'Catalog only',
+            self::Search        => 'Search only',
+            self::Hidden        => 'Hidden',
         };
     }
 }

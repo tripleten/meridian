@@ -53,7 +53,12 @@ final readonly class CreateProductHandler
                 'weight'            => $command->weight,
                 'weight_unit'       => $command->weight_unit,
                 'is_featured'       => $command->is_featured,
+                'main_image'        => $command->main_image,
             ]);
+
+            if (!empty($command->category_ids)) {
+                $product->categories()->sync($command->category_ids);
+            }
 
             $this->outbox->record(new ProductCreated(
                 productId: $product->id,

@@ -15,6 +15,7 @@ namespace Meridian\Catalog\Presentation\Admin\Products;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Meridian\Catalog\Application\Commands\ChangeProductStatusCommand;
@@ -29,10 +30,14 @@ use Meridian\Catalog\Application\Queries\ListProductsHandler;
 use Meridian\Catalog\Application\Queries\ListProductsQuery;
 use Meridian\Catalog\Domain\Product\ProductStatus;
 use Meridian\Catalog\Domain\Product\ProductType;
+use Meridian\Catalog\Domain\Product\Visibility;
+use Meridian\Catalog\Application\DTOs\ProductVariantData;
 use Meridian\Catalog\Infrastructure\Persistence\EloquentAttributeSet;
 use Meridian\Catalog\Infrastructure\Persistence\EloquentBrand;
 use Meridian\Catalog\Infrastructure\Persistence\EloquentBrandRepository;
+use Meridian\Catalog\Infrastructure\Persistence\EloquentCategory;
 use Meridian\Catalog\Infrastructure\Persistence\EloquentProduct;
+use Meridian\Catalog\Infrastructure\Persistence\EloquentProductVariant;
 use Meridian\Shared\Domain\Exceptions\DomainException;
 use Meridian\Shared\Domain\Exceptions\InvalidStateTransition;
 
@@ -60,16 +65,23 @@ final class ProductController
     public function create(): Response
     {
         return Inertia::render('admin/products/create', [
-            'brands'        => EloquentBrand::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'attributeSets' => EloquentAttributeSet::orderBy('name')->get(['id', 'name']),
-            'typeOptions'   => $this->typeOptions(),
-            'statusOptions' => $this->statusOptions(),
+            'brands'           => EloquentBrand::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'attributeSets'    => EloquentAttributeSet::orderBy('name')->get(['id', 'name']),
+            'categories'       => $this->flatCategories(),
+            'typeOptions'      => $this->typeOptions(),
+            'statusOptions'    => $this->statusOptions(),
+            'visibilityOptions' => $this->visibilityOptions(),
         ]);
     }
 
     public function store(Request $request, CreateProductHandler $handler): RedirectResponse
     {
         $validated = $request->validate($this->productRules());
+
+        $imagePath = null;
+        if ($request->hasFile('main_image')) {
+            $imagePath = $request->file('main_image')->store('products', 'public');
+        }
 
         try {
             $handler->handle(new CreateProductCommand(
@@ -89,6 +101,8 @@ final class ProductController
                 weight:           isset($validated['weight']) ? (float) $validated['weight'] : null,
                 weight_unit:      $validated['weight_unit'] ?? 'kg',
                 is_featured:      $validated['is_featured'] ?? false,
+                main_image:       $imagePath,
+                category_ids:     $validated['category_ids'] ?? [],
             ));
         } catch (DomainException $e) {
             return back()->withErrors(['sku' => $e->getMessage()]);
@@ -99,12 +113,31 @@ final class ProductController
 
     public function edit(string $product, GetProductHandler $handler): Response
     {
+        $productData = $handler->handle(new GetProductQuery($product));
+
+        $variants = EloquentProductVariant::where('product_id', $product)
+            ->orderBy('sort_order')
+            ->orderBy('sku')
+            ->get()
+            ->map(fn ($v) => ProductVariantData::fromModel($v))
+            ->values()
+            ->toArray();
+
+        $assignedCategoryIds = EloquentProduct::find($product)
+            ?->categories()
+            ->pluck('categories.id')
+            ->toArray() ?? [];
+
         return Inertia::render('admin/products/edit', [
-            'product'       => $handler->handle(new GetProductQuery($product)),
-            'brands'        => EloquentBrand::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'attributeSets' => EloquentAttributeSet::orderBy('name')->get(['id', 'name']),
-            'typeOptions'   => $this->typeOptions(),
-            'statusOptions' => $this->statusOptions(),
+            'product'            => $productData,
+            'variants'           => $variants,
+            'categories'         => $this->flatCategories(),
+            'assignedCategories' => $assignedCategoryIds,
+            'brands'             => EloquentBrand::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'attributeSets'      => EloquentAttributeSet::orderBy('name')->get(['id', 'name']),
+            'typeOptions'        => $this->typeOptions(),
+            'statusOptions'      => $this->statusOptions(),
+            'visibilityOptions'  => $this->visibilityOptions(),
         ]);
     }
 
@@ -115,6 +148,11 @@ final class ProductController
         unset($rules['sku']);
 
         $validated = $request->validate($rules);
+
+        $imagePath = null;
+        if ($request->hasFile('main_image')) {
+            $imagePath = $request->file('main_image')->store('products', 'public');
+        }
 
         try {
             $handler->handle(new UpdateProductCommand(
@@ -134,6 +172,8 @@ final class ProductController
                 weight:           isset($validated['weight']) ? (float) $validated['weight'] : null,
                 weight_unit:      $validated['weight_unit'] ?? 'kg',
                 is_featured:      $validated['is_featured'] ?? false,
+                main_image:       $imagePath,
+                category_ids:     $validated['category_ids'] ?? [],
             ));
         } catch (DomainException | InvalidStateTransition $e) {
             return back()->withErrors(['status' => $e->getMessage()]);
@@ -168,6 +208,10 @@ final class ProductController
             'weight'            => ['nullable', 'numeric', 'min:0'],
             'weight_unit'       => ['nullable', 'string', 'in:kg,g,lb,oz'],
             'is_featured'       => ['nullable', 'boolean'],
+            'visibility'        => ['nullable', 'string', 'in:' . implode(',', array_column(Visibility::cases(), 'value'))],
+            'main_image'        => ['nullable', 'image', 'max:5120'],
+            'category_ids'      => ['nullable', 'array'],
+            'category_ids.*'    => ['string', 'exists:categories,id'],
         ];
     }
 
@@ -185,5 +229,27 @@ final class ProductController
             fn (ProductType $t) => ['value' => $t->value, 'label' => $t->label()],
             ProductType::cases(),
         );
+    }
+
+    private function visibilityOptions(): array
+    {
+        return array_map(
+            fn (Visibility $v) => ['value' => $v->value, 'label' => $v->label()],
+            Visibility::cases(),
+        );
+    }
+
+    /** Flat list of active categories with indent prefix for depth visual. */
+    private function flatCategories(): array
+    {
+        return EloquentCategory::where('is_active', true)
+            ->orderBy('_lft')
+            ->get(['id', 'name', 'depth'])
+            ->map(fn ($c) => [
+                'id'    => $c->id,
+                'label' => str_repeat('— ', (int) $c->depth) . $c->name,
+                'depth' => (int) $c->depth,
+            ])
+            ->toArray();
     }
 }

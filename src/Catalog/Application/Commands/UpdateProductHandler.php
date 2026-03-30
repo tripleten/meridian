@@ -45,7 +45,13 @@ final readonly class UpdateProductHandler
         $product->weight            = $command->weight;
         $product->weight_unit       = $command->weight_unit;
         $product->is_featured       = $command->is_featured;
+        if ($command->main_image !== null) {
+            $product->main_image    = $command->main_image;
+        }
 
         $this->products->save($product);
+
+        // Always sync categories (empty array clears all assignments)
+        $product->categories()->sync($command->category_ids);
     }
 }
